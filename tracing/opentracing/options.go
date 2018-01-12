@@ -77,9 +77,9 @@ func shouldMarkWithError(o *options, err error) bool {
 		return true
 	}
 	stat, statusExists := status.FromError(err)
-	var whitelisted bool
+	var ignored bool
 	if statusExists {
-		whitelisted = o.errorCodes[stat.Code()]
+		ignored = o.errorCodes[stat.Code()]
 	}
-	return !whitelisted
+	return !ignored
 }
