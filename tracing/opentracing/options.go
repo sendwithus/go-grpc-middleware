@@ -58,8 +58,8 @@ func WithTracer(tracer opentracing.Tracer) Option {
 	}
 }
 
-// WithWhitelistedErrorCodes sets whitelisted error codes for the middleware.
-func WithWhitelistedErrorCodes(cs ...codes.Code) Option {
+// WithIgnoredErrorCodes sets error codes that will be ignored and not mark the span as errored.
+func WithIgnoredErrorCodes(cs ...codes.Code) Option {
 	return func(o *options) {
 		for _, c := range cs {
 			if o.errorCodes == nil {

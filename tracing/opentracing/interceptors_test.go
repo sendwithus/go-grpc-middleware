@@ -82,7 +82,7 @@ func TestTaggingSuite(t *testing.T) {
 	mockTracer := mocktracer.New()
 	opts := []grpc_opentracing.Option{
 		grpc_opentracing.WithTracer(mockTracer),
-		grpc_opentracing.WithWhitelistedErrorCodes(codes.NotFound),
+		grpc_opentracing.WithIgnoredErrorCodes(codes.NotFound),
 	}
 	s := &OpentracingSuite{
 		mockTracer: mockTracer,
