@@ -82,6 +82,7 @@ func TestTaggingSuite(t *testing.T) {
 	mockTracer := mocktracer.New()
 	opts := []grpc_opentracing.Option{
 		grpc_opentracing.WithTracer(mockTracer),
+		grpc_opentracing.WithIgnoredErrorCodes(codes.NotFound),
 	}
 	s := &OpentracingSuite{
 		mockTracer: mockTracer,
@@ -203,4 +204,14 @@ func (s *OpentracingSuite) TestPingError_PropagatesTraces() {
 	clientSpan, serverSpan := s.assertTracesCreated("/mwitkow.testproto.TestService/PingError")
 	assert.Equal(s.T(), true, clientSpan.Tag("error"), "client span needs to be marked as an error")
 	assert.Equal(s.T(), true, serverSpan.Tag("error"), "server span needs to be marked as an error")
+}
+
+func (s *OpentracingSuite) TestPingError_WhitelistTraces() {
+	ctx := s.createContextFromFakeHttpRequestParent(s.SimpleCtx())
+	erroringPing := &pb_testproto.PingRequest{Value: "something", ErrorCodeReturned: uint32(codes.NotFound)}
+	_, err := s.Client.PingError(ctx, erroringPing)
+	require.Error(s.T(), err, "there must be an error returned here")
+	clientSpan, serverSpan := s.assertTracesCreated("/mwitkow.testproto.TestService/PingError")
+	assert.Nil(s.T(), clientSpan.Tag("error"), "client span must not be marked as an error")
+	assert.Nil(s.T(), serverSpan.Tag("error"), "server span must not be marked as an error")
 }

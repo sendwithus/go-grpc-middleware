@@ -7,7 +7,7 @@ import (
 	"github.com/grpc-ecosystem/go-grpc-middleware"
 	"github.com/grpc-ecosystem/go-grpc-middleware/tags"
 	"github.com/grpc-ecosystem/go-grpc-middleware/util/metautils"
-	"github.com/opentracing/opentracing-go"
+	opentracing "github.com/opentracing/opentracing-go"
 	"github.com/opentracing/opentracing-go/ext"
 	"github.com/opentracing/opentracing-go/log"
 	"golang.org/x/net/context"
@@ -16,7 +16,7 @@ import (
 )
 
 var (
-	grpcTag = opentracing.Tag{string(ext.Component), "gRPC"}
+	grpcTag = opentracing.Tag{Key: string(ext.Component), Value: "gRPC"}
 )
 
 // UnaryServerInterceptor returns a new unary server interceptor for OpenTracing.
@@ -28,7 +28,7 @@ func UnaryServerInterceptor(opts ...Option) grpc.UnaryServerInterceptor {
 		}
 		newCtx, serverSpan := newServerSpanFromInbound(ctx, o.tracer, info.FullMethod)
 		resp, err := handler(newCtx, req)
-		finishServerSpan(ctx, serverSpan, err)
+		finishServerSpan(ctx, serverSpan, err, o)
 		return resp, err
 	}
 }
@@ -44,7 +44,7 @@ func StreamServerInterceptor(opts ...Option) grpc.StreamServerInterceptor {
 		wrappedStream := grpc_middleware.WrapServerStream(stream)
 		wrappedStream.WrappedContext = newCtx
 		err := handler(srv, wrappedStream)
-		finishServerSpan(newCtx, serverSpan, err)
+		finishServerSpan(newCtx, serverSpan, err, o)
 		return err
 	}
 }
@@ -66,7 +66,7 @@ func newServerSpanFromInbound(ctx context.Context, tracer opentracing.Tracer, fu
 	return opentracing.ContextWithSpan(ctx, serverSpan), serverSpan
 }
 
-func finishServerSpan(ctx context.Context, serverSpan opentracing.Span, err error) {
+func finishServerSpan(ctx context.Context, serverSpan opentracing.Span, err error, o *options) {
 	// Log context information
 	tags := grpc_ctxtags.Extract(ctx)
 	for k, v := range tags.Values() {
@@ -79,8 +79,11 @@ func finishServerSpan(ctx context.Context, serverSpan opentracing.Span, err erro
 		}
 	}
 	if err != nil {
-		ext.Error.Set(serverSpan, true)
+		// Log the error event but don't explicitly set the error:true component unless allowed.
 		serverSpan.LogFields(log.String("event", "error"), log.String("message", err.Error()))
+		if shouldMarkWithError(o, err) {
+			ext.Error.Set(serverSpan, true)
+		}
 	}
 	serverSpan.Finish()
 }

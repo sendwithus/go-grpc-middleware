@@ -6,7 +6,9 @@ package grpc_opentracing
 import (
 	"context"
 
-	"github.com/opentracing/opentracing-go"
+	opentracing "github.com/opentracing/opentracing-go"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 )
 
 var (
@@ -24,6 +26,8 @@ type FilterFunc func(ctx context.Context, fullMethodName string) bool
 type options struct {
 	filterOutFunc FilterFunc
 	tracer        opentracing.Tracer
+	// ErrorCodes are a map of grpc error codes. If true, this code will not mark the span as errored.
+	errorCodes map[codes.Code]bool
 }
 
 func evaluateOptions(opts []Option) *options {
@@ -52,4 +56,30 @@ func WithTracer(tracer opentracing.Tracer) Option {
 	return func(o *options) {
 		o.tracer = tracer
 	}
+}
+
+// WithIgnoredErrorCodes sets error codes that will be ignored and not mark the span as errored.
+func WithIgnoredErrorCodes(cs ...codes.Code) Option {
+	return func(o *options) {
+		for _, c := range cs {
+			if o.errorCodes == nil {
+				o.errorCodes = map[codes.Code]bool{}
+			}
+			o.errorCodes[c] = true
+		}
+	}
+}
+
+// shouldMarkWithError reads the options from the list and returns whether the error should mark the span as errored
+// it uses a set of whitelisted grpc error codes for this.
+func shouldMarkWithError(o *options, err error) bool {
+	if o == nil {
+		return true
+	}
+	stat, statusExists := status.FromError(err)
+	var ignored bool
+	if statusExists {
+		ignored = o.errorCodes[stat.Code()]
+	}
+	return !ignored
 }

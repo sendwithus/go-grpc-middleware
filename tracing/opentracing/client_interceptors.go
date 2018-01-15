@@ -26,7 +26,7 @@ func UnaryClientInterceptor(opts ...Option) grpc.UnaryClientInterceptor {
 		}
 		newCtx, clientSpan := newClientSpanFromContext(parentCtx, o.tracer, method)
 		err := invoker(newCtx, method, req, reply, cc, opts...)
-		finishClientSpan(clientSpan, err)
+		finishClientSpan(clientSpan, err, o)
 		return err
 	}
 }
@@ -41,7 +41,7 @@ func StreamClientInterceptor(opts ...Option) grpc.StreamClientInterceptor {
 		newCtx, clientSpan := newClientSpanFromContext(parentCtx, o.tracer, method)
 		clientStream, err := streamer(newCtx, desc, cc, method, opts...)
 		if err != nil {
-			finishClientSpan(clientSpan, err)
+			finishClientSpan(clientSpan, err, o)
 			return nil, err
 		}
 		return &tracedClientStream{ClientStream: clientStream, clientSpan: clientSpan}, nil
@@ -94,7 +94,7 @@ func (s *tracedClientStream) finishClientSpan(err error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	if !s.alreadyFinished {
-		finishClientSpan(s.clientSpan, err)
+		finishClientSpan(s.clientSpan, err, nil)
 		s.alreadyFinished = true
 	}
 }
@@ -133,10 +133,12 @@ func newClientSpanFromContext(ctx context.Context, tracer opentracing.Tracer, fu
 	return opentracing.ContextWithSpan(ctxWithMetadata, clientSpan), clientSpan
 }
 
-func finishClientSpan(clientSpan opentracing.Span, err error) {
+func finishClientSpan(clientSpan opentracing.Span, err error, o *options) {
 	if err != nil && err != io.EOF {
-		ext.Error.Set(clientSpan, true)
 		clientSpan.LogFields(log.String("event", "error"), log.String("message", err.Error()))
+		if shouldMarkWithError(o, err) {
+			ext.Error.Set(clientSpan, true)
+		}
 	}
 	clientSpan.Finish()
 }
