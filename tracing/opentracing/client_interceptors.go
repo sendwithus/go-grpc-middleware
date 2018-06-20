@@ -124,7 +124,7 @@ func newClientSpanFromContext(ctx context.Context, tracer opentracing.Tracer, fu
 			opts = append(opts, opt)
 		}
 	}
-	clientSpan := tracer.StartSpan("gr[c_client", opts...)
+	clientSpan := tracer.StartSpan("grpc_client", opts...)
 	// Make sure we add this to the metadata of the call, so it gets propagated:
 	md := metautils.ExtractOutgoing(ctx).Clone()
 	if err := tracer.Inject(clientSpan.Context(), opentracing.HTTPHeaders, metadataTextMap(md)); err != nil {
