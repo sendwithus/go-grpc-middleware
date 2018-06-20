@@ -117,13 +117,14 @@ func newClientSpanFromContext(ctx context.Context, tracer opentracing.Tracer, fu
 		opentracing.ChildOf(parentSpanCtx),
 		ext.SpanKindRPCClient,
 		grpcTag,
+		opentracing.Tag{Key: "resource.name", Value: fullMethodName},
 	}
 	if tagx := ctx.Value(clientSpanTagKey{}); tagx != nil {
 		if opt, ok := tagx.(opentracing.StartSpanOption); ok {
 			opts = append(opts, opt)
 		}
 	}
-	clientSpan := tracer.StartSpan(fullMethodName, opts...)
+	clientSpan := tracer.StartSpan("gr[c_client", opts...)
 	// Make sure we add this to the metadata of the call, so it gets propagated:
 	md := metautils.ExtractOutgoing(ctx).Clone()
 	if err := tracer.Inject(clientSpan.Context(), opentracing.HTTPHeaders, metadataTextMap(md)); err != nil {
