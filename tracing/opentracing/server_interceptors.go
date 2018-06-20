@@ -57,10 +57,13 @@ func newServerSpanFromInbound(ctx context.Context, tracer opentracing.Tracer, fu
 	}
 
 	serverSpan := tracer.StartSpan(
-		fullMethodName,
+		// Datadog wants the name of the start span to group related spans.
+		"grpc_server",
 		// this is magical, it attaches the new span to the parent parentSpanContext, and creates an unparented one if empty.
 		ext.RPCServerOption(parentSpanContext),
 		grpcTag,
+		// Datadog wants the resource name of a span to represent the url or RPC.
+		opentracing.Tag{Key: "resource.name", Value: fullMethodName},
 	)
 	hackyInjectOpentracingIdsToTags(serverSpan, grpc_ctxtags.Extract(ctx))
 	return opentracing.ContextWithSpan(ctx, serverSpan), serverSpan
